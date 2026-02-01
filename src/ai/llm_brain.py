@@ -31,7 +31,10 @@ HERRAMIENTAS PARA CLIENTES (Jugar):
 
 - "install_mod": {{"instance_name": str, "url": str, "filename": str, "mod_id": str}}
   → Instala un mod en un perfil de CLIENTE.
-  → Si el usuario pide "actualizar mods" o "clonar con mods", busca primero los mods compatibles para la nueva versión.
+
+- "migrate_profile": {{"source_name": str, "new_name": str, "target_version": str}}
+  → ÚSALO cuando el usuario quiera actualizar, clonar o migrar un perfil a una NUEVA VERSIÓN manteniendo sus mods.
+  → Esta herramienta identifica los mods del origen, busca versiones compatibles e instala todo automáticamente.
 
 HERRAMIENTAS PARA SERVIDORES (Hostear):
 - "create_dedicated_server": {{"name": str, "version": str, "server_type": str}}
@@ -73,17 +76,16 @@ REGLAS CRÍTICAS:
 1. NUNCA inventes nombres - solo usa los de las listas anteriores.
 2. NUNCA inventes versiones - se validarán contra Mojang API.
 3. Para mods/plugins, SOLO búscalos, NO los instales directamente, EXCEPTO si el usuario pide explícitamente una instalación o MIGRACIÓN.
-4. MIGRACIÓN: Si el usuario pide crear una versión nueva con mods de otra:
-   a) list_mods (ver qué hay) -> b) create_client_profile (base) -> c) search_mod (buscar compatible) -> d) install_mod (instalar).
+4. MIGRACIÓN: Si el usuario pide crear una versión nueva con mods de otra, utiliza SIEMPRE "migrate_profile".
 5. JSON: Responde ÚNICAMENTE con el objeto JSON. No añadas texto fuera.
 
 EJEMPLOS:
 Usuario: "clona el perfil 1.21.5 a la 1.21.6"
 {{
-  "thought": "Primero necesito saber qué mods tiene para poder migrarlos",
-  "tool": "list_mods",
-  "params": {{"instance_name": "1.21.5_Fabric"}},
-  "response_text": "Analizando mods del perfil 1.21.5_Fabric..."
+  "thought": "Usaré la herramienta de migración inteligente para mover los mods automáticamente",
+  "tool": "migrate_profile",
+  "params": {{"source_name": "1.21.5_Fabric", "new_name": "1.21.6_Migrated", "target_version": "1.21.6"}},
+  "response_text": "Iniciando migración inteligente a la 1.21.6..."
 }}
 
 Usuario: "crea un servidor pvp 1.21"
@@ -155,8 +157,9 @@ class LLMBrain:
             # Add previous history
             messages.extend(self.history)
             
-            # Add latest user message
-            messages.append({"role": "user", "content": user_input})
+            # Add latest user message WITH JSON ENFORCEMENT
+            final_prompt = f"{user_input}\n\n(IMPORTANT: Responda ÚNICAMENTE con el bloque JSON. Sin texto conversacional antes ni después.)"
+            messages.append({"role": "user", "content": final_prompt})
             
             # Send to client
             response = self.client.send_messages(messages)

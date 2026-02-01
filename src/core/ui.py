@@ -325,3 +325,29 @@ def print_ai_status(providers: dict, active: str):
         table.add_row(str(idx), name_display, data.get("model", "?"), status)
     
     console.print(table)
+
+
+def print_migration_report(report):
+    from rich.table import Table
+    from rich.panel import Panel
+    
+    if report.get("error"):
+        console.print(Panel(f"[bold red]{report['error']}[/bold red]", title="❌ Error"))
+        return
+
+    # Tabla Éxitos
+    if report["success"]:
+        t = Table(title=f"✅ Mods Migrados ({len(report['success'])})", style="green")
+        t.add_column("Mod")
+        t.add_column("Archivo")
+        for i in report["success"]: t.add_row(str(i["name"]), str(i["file"]))
+        console.print(t)
+    
+    # Tabla Fallos
+    if report["failed"]:
+        t = Table(title=f"❌ No compatibles ({len(report['failed'])})", style="red")
+        t.add_column("Mod")
+        t.add_column("Razón")
+        for i in report["failed"]: t.add_row(str(i["name"]), str(i["reason"]))
+        console.print(t)
+    console.print()
