@@ -306,6 +306,49 @@ def run_ai_wizard():
     key = Prompt.ask(f"Pega tu API Key de {provider}")
     return provider, key.strip()
 
+def show_instance_plan(plan: dict) -> bool:
+    """
+    Muestra el plan de instalación (V23.0) y pide confirmación.
+    """
+    from rich.table import Table
+    from rich.panel import Panel
+    
+    version = plan["target"]["version"]
+    loader = plan["target"]["loader"]
+    
+    console.print(Panel(
+        f"[bold white]Plan de Creación de Instancia[/bold white]\n"
+        f"Versión: [cyan]{version}[/cyan] | Loader: [magenta]{loader}[/magenta]",
+        border_style="blue"
+    ))
+    
+    # 1. Tabla de Mods
+    all_mods = plan["mods"] + plan["dependencies"]
+    
+    if all_mods:
+        t = Table(title="📦 Mods a Instalar", border_style="green", expand=True)
+        t.add_column("Nombre", style="bold white")
+        t.add_column("Tipo", style="cyan")
+        t.add_column("Archivo", style="dim")
+        
+        for mod in all_mods:
+            tipo = f"[green]Solicitado[/]" if mod["type"] == "Requested" else f"[yellow]Dependencia[/]"
+            t.add_row(mod["name"], tipo, mod["filename"])
+            
+        console.print(t)
+    else:
+        console.print("[yellow]⚠ No se encontraron mods compatibles.[/yellow]")
+
+    # 2. Missing
+    if plan["missing"]:
+        t_miss = Table(title="❌ No encontrados", border_style="red", expand=True)
+        t_miss.add_column("Query")
+        for m in plan["missing"]: t_miss.add_row(m)
+        console.print(t_miss)
+
+    console.print()
+    return Confirm.ask("[bold]¿Proceder con la creación?[/bold]", default=True)
+
 def print_ai_status(providers_config, active_provider):
     """Muestra una tabla con los modelos configurados y su estado."""
     from rich.table import Table

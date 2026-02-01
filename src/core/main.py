@@ -186,7 +186,41 @@ def main():
             if not tool or tool == "none":
                 continue
 
-            if tool == "migrate_profile":
+            if tool == "plan_instance":
+                name = params.get("name")
+                ver = params.get("version")
+                ldr = params.get("loader", "fabric")
+                mods = params.get("mods", [])
+                
+                # 1. PLANIFICACIÓN
+                if not debug_mode:
+                    with ui.show_spinner(f"🧠 Analizando dependencias para {ver}...") as p:
+                        plan = im.resolve_mod_setup(mods, ver, ldr)
+                else: 
+                    ui.console.print("[cyan]Debug: Resolving mods...[/cyan]")
+                    plan = im.resolve_mod_setup(mods, ver, ldr)
+                
+                # 2. PRESENTACIÓN
+                if ui.show_instance_plan(plan):
+                    # 3. EJECUCIÓN
+                    # A. Crear Instancia
+                    ok, msg, _ = im.create_instance(name, ver, ldr)
+                    if not ok:
+                        ui.print_error(msg)
+                    else:
+                        ui.print_success(msg)
+                        
+                        # B. Instalar Mods (Solicitados + Dependencias)
+                        all_mods = plan["mods"] + plan["dependencies"]
+                        with ui.show_spinner(f"⬇ Descargando {len(all_mods)} mods...") as p:
+                            for mod in all_mods:
+                                ok_mod, msg_mod = im.install_mod(name, mod["url"], mod["filename"])
+                                if not ok_mod: ui.print_error(f"{mod['name']}: {msg_mod}")
+                                
+                        ui.print_success("¡Instalación Inteligente Completada!")
+                        ui.render_dashboard(im.get_instances(), sm.get_servers())
+
+            elif tool == "migrate_profile":
                 src = params.get("source_name")
                 tgt = params.get("target_version")
                 new_n = params.get("new_name")

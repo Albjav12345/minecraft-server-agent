@@ -17,7 +17,12 @@ Dedicated Servers: {server_list}
 
 HERRAMIENTAS PARA CLIENTES (Jugar):
 - "create_client_profile": {{"name": str, "version": str, "loader": str}}
-  → Crea un perfil de CLIENTE para jugar desde el launcher
+  → Crea un perfil de CLIENTE vacío. ÚSALO SOLO si el usuario NO pide mods.
+
+- "plan_instance": {{"name": str, "version": str, "loader": str, "mods": [str]}}
+  → [IMPORTANTE] ÚSALO SIEMPRE QUE EL USUARIO PIDA UNA INSTANCIA CON MODS.
+  → Esta herramienta busca los mods, resuelve dependencias, muestra una tabla al usuario y crea todo en un solo paso inteligente.
+  → mods: Lista de nombres aproximados (ej: ["sodium", "iris", "litematica"])
   
 - "select_client": {{"name": str}}
   → Selecciona una instancia de cliente como activa

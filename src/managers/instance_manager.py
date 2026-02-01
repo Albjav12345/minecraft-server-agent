@@ -201,17 +201,98 @@ class InstanceManager:
                 return path
         return None
 
-    def get_mod_list(self, instance_name: str) -> List[str]:
-        """Returns a list of .jar filenames in the mods folder of an instance."""
-        path = self.get_path(instance_name)
-        if not path:
-            return []
-            
-        mods_path = os.path.join(path, "mods")
-        if not os.path.exists(mods_path):
-            return []
+    # --- V23.0 INTELLIGENT MOD PLANNER ---
+
+    def search_modrinth(self, query: str, version: str, loader: str) -> Optional[Dict]:
+        """Deep search on Modrinth for a specific version/loader."""
+        import requests
+        base = "https://api.modrinth.com/v2"
         
+        # 1. Search Project
         try:
-            return [f for f in os.listdir(mods_path) if f.endswith('.jar')]
-        except Exception:
-            return []
+            # Facets: ver is version, categories is loader
+            facets = f'[["versions:{version}"], ["categories:{loader}"]]'
+            r = requests.get(f"{base}/search", params={"query": query, "facets": facets}, timeout=5)
+            if r.status_code != 200: return None
+            hits = r.json().get("hits", [])
+            if not hits: return None
+            
+            project = hits[0] # Best match
+            pid = project["project_id"]
+            
+            # 2. Get Version File
+            r_ver = requests.get(f"{base}/project/{pid}/version", params={"loaders": f'["{loader}"]', "game_versions": f'["{version}"]'}, timeout=5)
+            versions = r_ver.json()
+            if not versions: return None
+            
+            target_ver = versions[0] # Latest compatible
+            primary_file = next((f for f in target_ver['files'] if f['primary']), target_ver['files'][0])
+            
+            return {
+                "name": project["title"],
+                "project_id": pid,
+                "version_id": target_ver["id"],
+                "filename": primary_file["filename"],
+                "url": primary_file["url"],
+                "dependencies": target_ver.get("dependencies", [])
+            }
+        except Exception as e:
+            print(f"Debug Search Error: {e}")
+            return None
+
+    def resolve_mod_setup(self, mod_names: List[str], version: str, loader: str) -> Dict:
+        """
+        Generates a complete installation plan with dependencies.
+        Returns: { 'found': [], 'missing': [], 'dependencies': [] }
+        """
+        plan = {
+            "target": {"version": version, "loader": loader},
+            "mods": [], # Requested mods found
+            "dependencies": [], # Auto-resolved deps
+            "missing": []
+        }
+        
+        resolved_ids = set()
+        
+        # Helper for recursive dependency resolution
+        def resolve_dep(dep_pid):
+            if dep_pid in resolved_ids: return
+            resolved_ids.add(dep_pid)
+            
+            # Fetch dep info (simplified search by ID) (This is tricky without name, need to get project by ID)
+            import requests
+            try:
+                # Get Project Metadata to get Name
+                r_proj = requests.get(f"https://api.modrinth.com/v2/project/{dep_pid}", timeout=5)
+                if r_proj.status_code != 200: return
+                p_data = r_proj.json()
+                slug = p_data["slug"]
+                
+                # Re-use search logic using slug which is safer for version matching
+                mod_data = self.search_modrinth(slug, version, loader)
+                if mod_data:
+                    mod_data["type"] = "Dependency"
+                    plan["dependencies"].append(mod_data)
+                    # Recurse? Maybe too deep nicely, but let's do 1 level? 
+                    # For safety avoids infinite loops. Most critical deps are 1 level deep (Fabric API, MaLiLib).
+            except: pass
+
+        for name in mod_names:
+            mod_data = self.search_modrinth(name, version, loader)
+            if mod_data:
+                mod_data["type"] = "Requested"
+                plan["mods"].append(mod_data)
+                resolved_ids.add(mod_data["project_id"])
+                
+                # Check Dependencies
+                for dep in mod_data["dependencies"]:
+                    # type: "required" or "optional"
+                    if dep.get("dependency_type") == "required":
+                        pid = dep.get("project_id") or dep.get("version_id") # Note: Modrinth deps can be tricky
+                        # Usually project_id is what we want
+                        if dep.get("project_id"):
+                            resolve_dep(dep["project_id"])
+            else:
+                plan["missing"].append(name)
+                
+        return plan
