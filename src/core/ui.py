@@ -174,7 +174,7 @@ def print_mods_table(mods: list, title="Mods Encontrados"):
         mods: List of dicts with: title, slug, author, downloads
     """
     if not mods:
-        console.print("[yellow]❌ No se encontraron mods.[/yellow]")
+        console.print("[yellow]❌  No se encontraron mods.[/yellow]")
         return
     
     table = Table(
@@ -234,20 +234,36 @@ def show_spinner(task_description: str):
     )
 
 def print_success(message: str):
-    """Prints success message with icon."""
-    console.print(f"[green]✔ {message}[/green]")
+    """Prints success message with styled Panel (Professional)."""
+    console.print(Padding(
+        Panel(
+            f"[bold green]✔  {message}[/bold green]",
+            border_style="green",
+            expand=False,
+            padding=(0, 2)
+        ),
+        (0, 0, 1, 0)
+    ))
 
 def print_error(message: str):
-    """Prints error message with icon."""
-    console.print(f"[red]❌ {message}[/red]")
+    """Prints error message with styled Panel."""
+    console.print(Padding(
+        Panel(
+            f"[bold red]{message}[/bold red]",
+            border_style="red",
+            expand=False,
+            padding=(0, 2)
+        ),
+        (0, 0, 1, 0)
+    ))
 
 def print_warning(message: str):
-    """Prints warning message with icon."""
-    console.print(f"[yellow]⚠ {message}[/yellow]")
+    """Prints warning message."""
+    console.print(f"[yellow]⚠  {message}[/yellow]")
 
 def print_info(message: str):
-    """Prints info message with icon."""
-    console.print(f"[cyan]ℹ {message}[/cyan]")
+    """Prints info message."""
+    console.print(f"[cyan]ℹ  {message}[/cyan]")
 
 # --- NEW V20.0 MODERN UI FUNCTIONS ---
 
@@ -306,48 +322,108 @@ def run_ai_wizard():
     key = Prompt.ask(f"Pega tu API Key de {provider}")
     return provider, key.strip()
 
-def show_instance_plan(plan: dict) -> bool:
+def run_interactive_plan_loop(plan: dict, im_ref) -> str:
     """
-    Muestra el plan de instalación (V23.0) y pide confirmación.
+    Bucle interactivo para editar el plan de mods (V25 - Clean UI).
     """
     from rich.table import Table
     from rich.panel import Panel
+    from rich.layout import Layout
     
-    version = plan["target"]["version"]
-    loader = plan["target"]["loader"]
-    
-    console.print(Panel(
-        f"[bold white]Plan de Creación de Instancia[/bold white]\n"
-        f"Versión: [cyan]{version}[/cyan] | Loader: [magenta]{loader}[/magenta]",
-        border_style="blue"
-    ))
-    
-    # 1. Tabla de Mods
-    all_mods = plan["mods"] + plan["dependencies"]
-    
-    if all_mods:
-        t = Table(title="📦 Mods a Instalar", border_style="green", expand=True)
-        t.add_column("Nombre", style="bold white")
-        t.add_column("Tipo", style="cyan")
-        t.add_column("Archivo", style="dim")
+    while True:
+        console.clear()
         
-        for mod in all_mods:
-            tipo = f"[green]Solicitado[/]" if mod["type"] == "Requested" else f"[yellow]Dependencia[/]"
-            t.add_row(mod["name"], tipo, mod["filename"])
+        # --- HEADER (Azul profesional) ---
+        version = plan["target"]["version"]
+        loader = plan["target"]["loader"]
+        
+        header_text = f"[bold white]PLANIFICADOR DE INSTANCIAS[/bold white]\n[dim]Target:[/dim] [cyan]{version}[/cyan] ({loader})"
+        console.print(Padding(Panel(header_text, border_style="blue", padding=(0, 1)), (0, 0, 1, 0)))
+        
+        # --- TABLA MODS (Naranja solicitado) ---
+        all_mods = plan["mods"] + plan["dependencies"]
+        
+        if all_mods:
+            t = Table(title="Mods Seleccionados", border_style="orange1", title_style="orange1", expand=True, box=box.SIMPLE_HEAD)
+            t.add_column("ID", style="dim", width=4, justify="right")
+            t.add_column("Nombre", style="bold white")
+            t.add_column("Tipo", style="white")
+            t.add_column("Archivo / Versión", style="dim")
             
-        console.print(t)
-    else:
-        console.print("[yellow]⚠ No se encontraron mods compatibles.[/yellow]")
+            for i, mod in enumerate(all_mods, 1):
+                # Estilo limpio para el tipo
+                tipo = "[cyan]Manual[/]" if mod["type"] == "Requested" else "[dim]Auto[/]"
+                
+                # Alerta visual si la versión del archivo parece sospechosamente diferente (heuristic)
+                fname = mod["filename"]
+                style_file = "dim"
+                if version not in fname and any(c.isdigit() for c in fname): 
+                    # Si la versión target no está en el nombre del archivo, lo marcamos sutilmente
+                    style_file = "yellow"
+                    
+                t.add_row(str(i), mod["name"], tipo, f"[{style_file}]{fname}[/{style_file}]")
+                
+            console.print(t)
+        else:
+            console.print(Panel("[yellow]La lista está vacía.[/yellow]", border_style="orange1"))
 
-    # 2. Missing
-    if plan["missing"]:
-        t_miss = Table(title="❌ No encontrados", border_style="red", expand=True)
-        t_miss.add_column("Query")
-        for m in plan["missing"]: t_miss.add_row(m)
-        console.print(t_miss)
+        # --- MISSING (Rojo) ---
+        if plan["missing"]:
+            miss_text = "\n".join([f"• {m}" for m in plan["missing"]])
+            console.print(Padding(Panel(
+                f"[bold red]No encontrados / Incompatibles:[/bold red]\n{miss_text}\n[dim]Estos mods no existen para {version}. Intenta buscar alternativas.[/dim]", 
+                border_style="red"
+            ), (1, 0)))
 
-    console.print()
-    return Confirm.ask("[bold]¿Proceder con la creación?[/bold]", default=True)
+        # --- COMMAND FOOTER (Inline One-Liner) ---
+        # "add <name>  •  del <id>  •  y (start)  •  n (cancel)"
+        console.print()
+        console.print(Align.center(
+            "[dim]Comandos:[/dim]  [bold cyan]add <nombre>[/]  [dim]•[/dim]  [bold red]del <id>[/]  [dim]•[/dim]  [bold green]start / y[/]  [dim]•[/dim]  [bold white]cancel / n[/]"
+        ))
+        
+        # --- INPUT ---
+        console.print()
+        choice = Prompt.ask("[bold cyan]❯[/bold cyan]").strip().lower()
+        
+        if choice in ['y', 'yes', 'si', 's', 'start']:
+            return "proceed"
+            
+        if choice in ['n', 'no', 'cancel', 'exit']:
+            return "cancel"
+            
+        if choice.startswith("del "):
+            try:
+                idx = int(choice.split()[1]) - 1
+                if 0 <= idx < len(all_mods):
+                    mod_to_remove = all_mods[idx]
+                    if mod_to_remove in plan["mods"]: plan["mods"].remove(mod_to_remove)
+                    elif mod_to_remove in plan["dependencies"]: plan["dependencies"].remove(mod_to_remove)
+                else:
+                    print_error("ID inválido.")
+                    time.sleep(1)
+            except:
+                pass
+                
+        if choice.startswith("add "):
+            query = choice[4:].strip()
+            if query:
+                with show_spinner(f"Buscando '{query}'..."):
+                    mod_data = im_ref.search_modrinth(query, version, loader)
+                
+                if mod_data:
+                    mod_data["type"] = "Requested"
+                    plan["mods"].append(mod_data)
+                    
+                    # Resolver dependencias nuevas
+                    if mod_data["dependencies"]:
+                        mini_plan = im_ref.resolve_mod_setup([mod_data["name"]], version, loader)
+                        for dep in mini_plan["dependencies"]:
+                            if not any(d['project_id'] == dep['project_id'] for d in plan["dependencies"]):
+                                plan["dependencies"].append(dep)
+                else:
+                    print_error(f"No encontrado compatible con {version}")
+                    time.sleep(1.5)
 
 def print_ai_status(providers_config, active_provider):
     """Muestra una tabla con los modelos configurados y su estado."""
@@ -380,7 +456,7 @@ def print_ai_status(providers_config, active_provider):
     ))
 
 def print_config_reload():
-    console.print("[bold green]✔ Configuración recargada correctamente.[/]")
+    console.print("[bold green]✔  Configuración recargada correctamente.[/]")
 
 
 def print_migration_report(report):
@@ -388,7 +464,7 @@ def print_migration_report(report):
     from rich.panel import Panel
     
     if report.get("error"):
-        console.print(Panel(f"[bold red]{report['error']}[/bold red]", title="❌ Error"))
+        console.print(Panel(f"[bold red]{report['error']}[/bold red]", title="❌  Error"))
         return
 
     # Tabla Éxitos

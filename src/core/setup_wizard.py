@@ -150,7 +150,7 @@ def run_onboarding():
     else:
         panel_color = "orange1"
         panel_title = "Completed with Warnings"
-        status_msg = "[yellow]⚠️ Configuración Guardada (Con Advertencias)[/yellow]"
+        status_msg = "[yellow]⚠️  Configuración Guardada (Con Advertencias)[/yellow]"
         extra_info = f"\n[bold yellow]Advertencia:[/bold yellow] {warning_msg}\nEs posible que la IA no responda correctamente."
 
     console.print(Panel(

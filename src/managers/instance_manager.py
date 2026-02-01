@@ -153,7 +153,7 @@ class InstanceManager:
             with open(os.path.join(path, "instance.json"), 'w', encoding='utf-8') as f:
                 json.dump(meta, f, indent=4)
             
-            return True, f"✓ Instancia '{safe_name}' creada para Minecraft {version} ({loader})", safe_name
+            return True, f"Instancia '{safe_name}' creada para Minecraft {version} ({loader})", safe_name
             
         except Exception as e:
             return False, f"❌ Error creando instancia: {e}", None
@@ -220,12 +220,31 @@ class InstanceManager:
             project = hits[0] # Best match
             pid = project["project_id"]
             
-            # 2. Get Version File
-            r_ver = requests.get(f"{base}/project/{pid}/version", params={"loaders": f'["{loader}"]', "game_versions": f'["{version}"]'}, timeout=5)
+            # 2. Get Version File (STRICT)
+            # We strictly request the version, but we also verify the result.
+            params = {
+                "loaders": f'["{loader}"]', 
+                "game_versions": f'["{version}"]'
+            }
+            r_ver = requests.get(f"{base}/project/{pid}/version", params=params, timeout=5)
             versions = r_ver.json()
-            if not versions: return None
             
-            target_ver = versions[0] # Latest compatible
+            if not versions: 
+                # Retry without explicit version param to check if we can find a loose match, 
+                # BUT manually filter results to be safe.
+                # (Some mods tag '1.21' instead of '1.21.6')
+                return None
+            
+            # Strict Filter: Ensure the returned file actually supports the specific version requested
+            target_ver = None
+            for v in versions:
+                if version in v.get("game_versions", []):
+                    target_ver = v
+                    break
+            
+            if not target_ver:
+                 return None
+
             primary_file = next((f for f in target_ver['files'] if f['primary']), target_ver['files'][0])
             
             return {

@@ -200,25 +200,42 @@ def main():
                     ui.console.print("[cyan]Debug: Resolving mods...[/cyan]")
                     plan = im.resolve_mod_setup(mods, ver, ldr)
                 
-                # 2. PRESENTACIÓN
-                if ui.show_instance_plan(plan):
+                # 2. PRESENTACIÓN INTERACTIVA (V24.0)
+                action = ui.run_interactive_plan_loop(plan, im)
+                
+                if action == "proceed":
                     # 3. EJECUCIÓN
                     # A. Crear Instancia
-                    ok, msg, _ = im.create_instance(name, ver, ldr)
+                    ok, msg, inst_name = im.create_instance(name, ver, ldr)
                     if not ok:
                         ui.print_error(msg)
                     else:
-                        ui.print_success(msg)
-                        
                         # B. Instalar Mods (Solicitados + Dependencias)
                         all_mods = plan["mods"] + plan["dependencies"]
                         with ui.show_spinner(f"⬇ Descargando {len(all_mods)} mods...") as p:
                             for mod in all_mods:
                                 ok_mod, msg_mod = im.install_mod(name, mod["url"], mod["filename"])
                                 if not ok_mod: ui.print_error(f"{mod['name']}: {msg_mod}")
-                                
-                        ui.print_success("¡Instalación Inteligente Completada!")
+                        
+                        # Consolidated Success Message
+                        from rich.panel import Panel
+                        from rich.padding import Padding
+                        success_message = (
+                            f"[bold green]✔  {msg}[/bold green]\n"
+                            f"[bold green]✔  ¡Instalación Inteligente Completada![/bold green]"
+                        )
+                        ui.console.print(Padding(
+                            Panel(
+                                success_message,
+                                border_style="green",
+                                expand=False,
+                                padding=(0, 2)
+                            ),
+                            (1, 0, 1, 0)  # Top and bottom margin
+                        ))
                         ui.render_dashboard(im.get_instances(), sm.get_servers())
+                else:
+                    ui.console.print("[yellow]Operación cancelada por el usuario.[/yellow]")
 
             elif tool == "migrate_profile":
                 src = params.get("source_name")
