@@ -306,26 +306,38 @@ def run_ai_wizard():
     key = Prompt.ask(f"Pega tu API Key de {provider}")
     return provider, key.strip()
 
-def print_ai_status(providers: dict, active: str):
-    """Prints a table of configured AI providers."""
-    table = Table(title="🧠 Estados de IA", border_style="cyan")
-    table.add_column("#", style="dim", width=4)
-    table.add_column("Proveedor", style="cyan")
+def print_ai_status(providers_config, active_provider):
+    """Muestra una tabla con los modelos configurados y su estado."""
+    from rich.table import Table
+    from rich.panel import Panel
+    
+    table = Table(title="🧠 Estado de Inteligencia Artificial", border_style="cyan", expand=True)
+    table.add_column("Proveedor", style="cyan", justify="center")
     table.add_column("Modelo", style="magenta")
-    table.add_column("Estado", style="green")
-    
-    for idx, (name, data) in enumerate(providers.items(), start=1):
-        is_active = (name == active)
-        status = "✅ Configurado" if data.get("api_key") else "❌ Sin Key"
-        if is_active:
-            name_display = f"[bold green]> {name}[/bold green]"
-            status += " (ACTIVO)"
-        else:
-            name_display = name
-            
-        table.add_row(str(idx), name_display, data.get("model", "?"), status)
-    
+    table.add_column("API Key", style="dim")
+    table.add_column("Estado", justify="center")
+
+    for name, conf in providers_config.items():
+        is_active = (name == active_provider)
+        status = "[bold green]● ACTIVO[/]" if is_active else "[dim]○ Inactivo[/]"
+        style = "bold white" if is_active else "dim"
+        
+        # Ocultar parte de la key
+        key = conf.get('api_key', '')
+        masked_key = f"{key[:4]}...{key[-4:]}" if key and len(key) > 8 else "Not Set"
+        
+        table.add_row(name.upper(), conf.get('model', 'Default'), masked_key, status, style=style)
+
     console.print(table)
+    console.print(Panel(
+        "[bold]Comandos:[/]\n"
+        "  [cyan]!use <proveedor>[/]  -> Cambiar de IA (ej: [dim]!use gemini[/])\n"
+        "  [cyan]!config[/]          -> Reconfigurar Keys",
+        border_style="dim"
+    ))
+
+def print_config_reload():
+    console.print("[bold green]✔ Configuración recargada correctamente.[/]")
 
 
 def print_migration_report(report):

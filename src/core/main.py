@@ -72,6 +72,53 @@ def main():
                 ui.console.print(f"[{color}]🐛 MODO DEBUG {status}[/{color}]")
                 continue
 
+            # --- COMANDOS DE SISTEMA (Interceptados antes de la IA) ---
+            
+            # 1. !models - Ver estado
+            if user_input.lower() == "!models":
+                ui.print_ai_status(settings.data["ai_providers"], settings.get_active_provider())
+                continue
+
+            # 2. !use <provider> - Cambiar IA en caliente
+            if user_input.lower().startswith("!use "):
+                parts = user_input.split()
+                if len(parts) > 1:
+                    new_provider = parts[1].lower()
+                    if new_provider in settings.data["ai_providers"]:
+                        # Guardar cambio
+                        settings.set_active_provider(new_provider)
+                        
+                        # Reconfigurar cerebro en caliente
+                        active_provider = new_provider
+                        p_conf = settings.get_provider_config(active_provider)
+                        brain.configure(active_provider, p_conf.get("api_key"), p_conf.get("model"))
+                        
+                        # Feedback UI
+                        ui.console.print(f"[bold green]🧠 Cerebro cambiado a: {new_provider.upper()}[/bold green]")
+                        ui.print_banner(model_name=new_provider.upper(), profile="Reloaded")
+                    else:
+                        ui.print_error(f"Proveedor '{new_provider}' no existe. Usa !models para ver lista.")
+                else:
+                    ui.print_error("Uso: !use <nombre_proveedor>")
+                continue
+
+            # 3. !config - Reabrir Wizard
+            if user_input.lower() == "!config":
+                import src.core.setup_wizard as setup_wizard
+                ui.console.print("[yellow]🔄 Abriendo asistente de configuración...[/yellow]")
+                setup_wizard.run_onboarding()
+                
+                # Recargar todo
+                settings = Settings()
+                active_provider = settings.get_active_provider()
+                p_conf = settings.get_provider_config(active_provider)
+                brain.configure(active_provider, p_conf.get("api_key"), p_conf.get("model"))
+                
+                os.system('cls' if os.name == 'nt' else 'clear')
+                ui.print_banner(model_name=active_provider.upper(), profile="Config Updated")
+                ui.render_dashboard(im.get_instances(), sm.get_servers())
+                continue
+
             if user_input.lower() in ["exit", "salir"]: sys.exit(0)
 
             if user_input.lower() == "cls":
