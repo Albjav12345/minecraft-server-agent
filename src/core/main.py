@@ -1,8 +1,7 @@
 """
-MineGenesis V17.0 - PARANOID DEBUG MODE
-Este archivo fuerza la migración si detecta la intención, ignorando los errores de la IA.
+MineGenesis V18.0 - TOGGLE DEBUG SYSTEM
+Comando !debug para alternar entre UI limpia y Logs técnicos.
 """
-print("\n\n!!! MODO DEBUG ACTIVADO - SI FALLA, TE DIRÉ POR QUÉ !!!\n\n")
 import os
 import sys
 import json
@@ -15,202 +14,208 @@ from src.ai.llm_brain import LLMBrain
 from src.api.minecraft_api import validator
 import src.core.ui as ui
 
-
-# --- CONFIGURACIÓN DE UI DE EMERGENCIA ---
-# Definimos esto aquí por si tu ui.py no se actualizó, para evitar crash
+# UI de Emergencia para reportes
 def fallback_migration_report(report):
-    ui.console.print("\n[bold yellow]REPORTE DE MIGRACIÓN (MODO TEXTO):[/bold yellow]")
-    if report.get("error"):
-        ui.console.print(f"[red]❌ ERROR: {report['error']}[/red]")
-
-    success_count = len(report.get('success', []))
-    fail_count = len(report.get('failed', []))
-
-    ui.console.print(f"[green]✅ Éxitos: {success_count}[/green]")
-    ui.console.print(f"[red]❌ Fallos: {fail_count}[/red]")
-
-    if success_count > 0:
-        ui.console.print("[dim]Mods instalados:[/dim]")
-        for s in report['success']:
-            ui.console.print(f"  - {s.get('name', '?')}")
-
+    ui.console.print("\n[bold yellow]REPORTE DE MIGRACIÓN (TEXTO):[/bold yellow]")
+    if report.get("error"): ui.console.print(f"[red]❌ ERROR: {report['error']}[/red]")
+    ui.console.print(f"[green]✅ Éxitos: {len(report.get('success', []))}[/green]")
+    ui.console.print(f"[red]❌ Fallos: {len(report.get('failed', []))}[/red]")
 
 def main():
-    # 1. INICIO RÁPIDO
-    # Verificación simple de onboarding
+    # --- SETUP ---
     if not os.path.exists("config/.env") and not os.path.exists("config/settings.json"):
         import src.core.setup_wizard as setup_wizard
         setup_wizard.run_onboarding()
 
     settings = Settings()
     active_provider = settings.get_active_provider()
-
+    
     # Init Managers
-    instances_path_val = settings.get_instances_path()
-    im = InstanceManager(instances_path_val)
+    # NOTA: Pasamos la ruta explícita al MigrationManager (Fix V17.2)
+    instances_path = settings.get_instances_path()
+    im = InstanceManager(instances_path)
     sm = ServerManager(settings.get_servers_path())
-    mm = MigrationManager(im, root_path=instances_path_val)
+    mm = MigrationManager(im, root_path=instances_path) 
     brain = LLMBrain()
-
-    # Configurar IA
+    
+    # Configure AI
     p_conf = settings.get_provider_config(active_provider)
     brain.configure(active_provider, p_conf.get("api_key"), p_conf.get("model"))
 
-    # Render Inicial
+    # UI Init
     os.system('cls' if os.name == 'nt' else 'clear')
-    ui.print_banner(model_name=active_provider.upper(), profile="DEBUG MODE")
+    ui.print_banner(model_name=active_provider.upper(), profile="Ready")
     ui.render_dashboard(im.get_instances(), sm.get_servers())
-
+    
     current_instance = settings.get_last_instance()
     current_server = settings.get_last_server()
 
+    # ESTADO GLOBAL
+    debug_mode = False 
+
     while True:
         try:
-            # Contexto visual
-            prompt_label = f"[CLIENT:{current_instance}]" if current_instance else "[GLOBAL]"
-            ui.console.print()
-            user_input = ui.ask_user(f"[bold red]DEBUG[/bold red] {prompt_label} > ")
-
+            # Prompt Dinámico
+            ctx_label = f"[CLIENT:{current_instance}]" if current_instance else "[GLOBAL]"
+            debug_tag = "[bold yellow][DEBUG][/bold yellow] " if debug_mode else ""
+            
+            ui.console.print() 
+            user_input = ui.ask_user(f"{debug_tag}{ctx_label} > ")
+            
             if not user_input.strip(): continue
 
-            # Comandos rápidos
-            if user_input.lower() in ["exit", "salir"]: sys.exit(0)
-
-            # --- 1. CONSULTA A LA IA ---
-            ui.console.print("[dim]🧠 Consultando al cerebro...[/dim]", end="\r")
-            try:
-                response = brain.query(user_input, im.get_instances(), sm.get_servers(), current_instance,
-                                       current_server)
-            except Exception as e:
-                ui.console.print(f"[red]Error conectando con la IA: {e}[/red]")
+            # --- COMANDOS INTERNOS ---
+            if user_input.lower() == "!debug":
+                debug_mode = not debug_mode
+                status = "ACTIVADO (Verás logs técnicos)" if debug_mode else "DESACTIVADO (Modo Limpio)"
+                color = "green" if debug_mode else "red"
+                ui.console.print(f"[{color}]🐛 MODO DEBUG {status}[/{color}]")
                 continue
 
-            # --- 2. EXTRACCIÓN DE JSON (DEBUG) ---
-            # Limpieza brutal del JSON
-            json_str = response.strip()
-            if "```json" in json_str:
-                json_str = json_str.split("```json")[1].split("```")[0].strip()
-            elif "```" in json_str:
-                json_str = json_str.split("```")[1].split("```")[0].strip()
+            if user_input.lower() in ["exit", "salir"]: sys.exit(0)
+
+            if user_input.lower() == "cls":
+                os.system('cls' if os.name == 'nt' else 'clear')
+                ui.print_banner(model_name=active_provider.upper())
+                ui.render_dashboard(im.get_instances(), sm.get_servers())
+                continue
+
+            # --- 1. CEREBRO IA ---
+            if debug_mode: ui.console.print("[dim]🧠 Consultando API...[/dim]")
+            else: ui.console.print("[dim italic]Procesando...[/dim italic]", end="\r")
 
             try:
-                # Regex para encontrar el primer objeto JSON válido { ... }
+                response = brain.query(user_input, im.get_instances(), sm.get_servers(), current_instance, current_server)
+                if not debug_mode: ui.console.print(" " * 20, end="\r") # Limpiar línea
+            except Exception as e:
+                ui.print_error(f"Error de conexión IA: {e}")
+                continue
+            
+            # --- 2. PARSEO JSON ---
+            if debug_mode: ui.console.print(f"[dim yellow]RAW:[/dim yellow] {response[:80]}...")
+
+            # Limpieza robusta
+            json_str = response.strip()
+            if "```json" in json_str: json_str = json_str.split("```json")[1].split("```")[0].strip()
+            elif "```" in json_str: json_str = json_str.split("```")[1].split("```")[0].strip()
+            
+            try:
                 match = re.search(r'\{.*\}', json_str, re.DOTALL)
-                if match:
-                    json_str = match.group(0)
+                if match: json_str = match.group(0)
                 data = json.loads(json_str)
             except:
-                ui.console.print(f"[dim red]La IA no devolvió JSON válido. Respuesta raw: {response[:50]}...[/dim red]")
+                if debug_mode: ui.console.print(f"[red]JSON Roto: {response}[/red]")
                 data = {}
 
             tool = data.get("tool")
             params = data.get("params", {})
-
-            # Si hay texto de respuesta, muéstralo
+            
+            # Mostrar respuesta de texto si existe
             if data.get("response_text"):
                 ui.print_ai_response(data["response_text"])
 
-            ui.console.print(f"[bold cyan]🔧 TOOL DETECTADA POR IA:[/bold cyan] '{tool}'")
+            if debug_mode: ui.console.print(f"[cyan]🔧 Tool Detectada: {tool}[/cyan]")
 
-            # --- 3. OVERRIDE (LA FUERZA BRUTA) ---
-            # Si el usuario dice "clona" y la IA falla, tomamos el control MANUALMENTE.
-            is_migration_intent = any(k in user_input.lower() for k in ["clona", "migra", "copia"])
-
-            if is_migration_intent and (not tool or tool == "none" or tool == "list_mods"):
-                ui.console.print("[bold magenta]⚡ DETECTADA INTENCIÓN DE MIGRACIÓN - ACTIVANDO OVERRIDE[/bold magenta]")
+            # --- 3. OVERRIDE SYSTEM (Migración) ---
+            # Este sistema corrige a la IA si falla al detectar intención de migrar
+            is_migra = any(k in user_input.lower() for k in ["clona", "migra", "copia"])
+            
+            if is_migra and (not tool or tool == "none" or tool == "list_mods"):
+                if debug_mode: ui.console.print("[magenta]⚡ Override: Forzando migración[/magenta]")
                 tool = "migrate_profile"
-
-                # Regex para sacar versiones/nombres del input del usuario
-                # Busca patrones como "1.21.6", "MyProfile", etc.
-                parts = user_input.split()
-                versions = re.findall(r'(\d+\.\d+(?:\.\d+)?)', user_input)
-
-                # Intentamos deducir origen y destino
-                src = params.get(
-                    "source_name") or current_instance or "1.21.5_Fabric"  # Fallback hardcoded si todo falla
-                tgt = params.get("target_version")
-
-                if versions:
-                    tgt = versions[-1]  # Asumimos la última versión mencionada es el destino
-
-                if not tgt: tgt = "1.21.6"  # Último recurso
-
+                
+                # Deducción de parámetros
+                vers = re.findall(r'(\d+\.\d+(?:\.\d+)?)', user_input)
+                src = params.get("source_name") or current_instance or "1.21.5_Fabric"
+                tgt = vers[-1] if vers else "1.21.6"
+                
                 params = {
                     "source_name": src,
-                    "new_name": f"Migrated_to_{tgt}",
+                    "new_name": f"Migrated_{tgt}",
                     "target_version": tgt
                 }
-                ui.console.print(f"[dim]Parámetros forzados: {params}[/dim]")
 
             # --- 4. EJECUCIÓN DE TOOLS ---
             if not tool or tool == "none":
                 continue
 
-            # >>> BLOQUE DE MIGRACIÓN BLINDADO <<<
             if tool == "migrate_profile":
-                src = params.get("source_name") or params.get("instance_name") or params.get("name")
-                tgt = params.get("target_version") or params.get("version")
-                new_n = params.get("new_name") or f"Migrated_{tgt}"
+                src = params.get("source_name")
+                tgt = params.get("target_version")
+                new_n = params.get("new_name")
 
                 if not src or not tgt:
-                    ui.print_error(f"Faltan parámetros: Src={src}, Tgt={tgt}")
+                    ui.print_error("Faltan datos para migrar.")
                 else:
-                    ui.console.print(f"[bold green]🚀 EJECUTANDO MIGRACIÓN REAL: {src} -> {tgt}[/bold green]")
+                    # Spinner en modo normal, Log en debug
+                    if not debug_mode:
+                        with ui.show_spinner(f"🚀 Migrando {src} a {tgt}...") as p:
+                            try:
+                                result = mm.migrate_profile(src, new_n, tgt)
+                            except Exception as e:
+                                result = {"error": str(e)}
+                    else:
+                        ui.console.print(f"[bold green]🚀 Debug: Iniciando migración {src}->{tgt}[/bold green]")
+                        try:
+                            result = mm.migrate_profile(src, new_n, tgt)
+                            ui.console.print(f"[dim]Keys: {list(result.keys())}[/dim]")
+                        except Exception as e:
+                            ui.console.print(f"[bold red]CRASH: {e}[/bold red]")
+                            result = None
 
-                    try:
-                        # LLAMADA AL BACKEND
-                        result = mm.migrate_profile(src, new_n, tgt)
-
-                        # DEBUG DEL RESULTADO
-                        if not result:
-                            ui.console.print("[bold red]❌ EL BACKEND DEVOLVIÓ NONE/VACÍO[/bold red]")
+                    # Renderizado
+                    if result:
+                        if hasattr(ui, 'print_migration_report'):
+                            ui.print_migration_report(result)
                         else:
-                            # ui.console.print(f"[dim]Resultado: {result}[/dim]") # Descomentar si quieres ver el raw
+                            fallback_migration_report(result)
+                        
+                        ui.render_dashboard(im.get_instances(), sm.get_servers())
+                    else:
+                        ui.print_error("La migración falló (Sin resultado).")
 
-                            # INTENTO DE RENDERIZADO UI
-                            if hasattr(ui, 'print_migration_report'):
-                                ui.print_migration_report(result)
-                            else:
-                                fallback_migration_report(result)
-
-                            # Refrescar tabla
-                            ui.render_dashboard(im.get_instances(), sm.get_servers())
-
-                    except Exception as e:
-                        ui.console.print(f"[bold red]❌ CRASH EN PYTHON:[/bold red] {e}")
-                        import traceback
-                        traceback.print_exc()
-
-            # --- OTRAS HERRAMIENTAS ---
             elif tool == "list_all":
                 ui.render_dashboard(im.get_instances(), sm.get_servers())
 
             elif tool == "create_client_profile":
-                name = params.get("name", "New_Profile")
+                name = params.get("name", "NewInstance")
                 ver = params.get("version", "1.21.1")
                 ldr = params.get("loader", "fabric")
-                with ui.show_spinner("Creando perfil...") as p:
-                    ok, msg, _ = im.create_instance(name, ver, ldr)
-                if ok:
-                    ui.print_success(msg)
+                
+                msg_spin = f"Creando perfil {name}..."
+                if debug_mode: ui.console.print(f"[cyan]Creando: {name} ({ver})[/cyan]")
+                
+                # Ejecución (con o sin spinner según modo)
+                if not debug_mode:
+                    with ui.show_spinner(msg_spin):
+                        ok, msg, _ = im.create_instance(name, ver, ldr)
                 else:
-                    ui.print_error(msg)
+                    ok, msg, _ = im.create_instance(name, ver, ldr)
+                
+                if ok: ui.print_success(msg)
+                else: ui.print_error(msg)
                 ui.render_dashboard(im.get_instances(), sm.get_servers())
 
             elif tool == "install_mod":
-                # Lógica existente...
-                pass
-
-            # Feedback loop
+                # Lógica simplificada de ejemplo
+                url = params.get("url")
+                file = params.get("filename")
+                tgt = params.get("instance_name") or current_instance
+                if url and file:
+                    with ui.show_spinner("Instalando mod..."):
+                        ok, msg = im.install_mod(tgt, url, file)
+                    if ok: ui.print_success(msg)
+                    else: ui.print_error(msg)
+            
             ui.print_separator()
 
         except KeyboardInterrupt:
             break
         except Exception as e:
-            ui.console.print(f"[bold red]❌ ERROR FATAL EN MAIN LOOP: {e}[/bold red]")
-            import traceback
-            traceback.print_exc()
-
+            ui.print_error(f"Error Loop: {e}")
+            if debug_mode:
+                import traceback
+                traceback.print_exc()
 
 if __name__ == "__main__":
     main()
