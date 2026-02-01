@@ -1,0 +1,60 @@
+{
+    "instances": {
+        "Test": {
+            "path": "instances\\Test",
+            "version": "1.21.8",
+            "loader": "fabric",
+            "mods": []
+        },
+        "Nombre": {
+            "path": "instances\\Nombre",
+            "version": "1.20.1",
+            "loader": "fabric",
+            "mods": []
+        },
+        "NuevaInstancia": {
+            "path": "C:\\Users\\Alberto\\.gemini\\antigravity\\scratch\\minecraft-server-agent\\instances\\NuevaInstancia",
+            "version": "1.20.1",
+            "loader": "fabric",
+            "mods": []
+        }
+    },
+    "active_instance": "NuevaInstancia",
+    "user_profile": {
+        "preferences": []
+    },
+    "history": [
+        {
+            "role": "user",
+            "content": "Hola"
+        },
+        {
+            "role": "ai",
+            "content": "\u00a1Hola! Me alegra verte. Estoy aqu\u00ed para ayudarte con tu servidor de Minecraft. Actualmente, la instancia activa es \"Test\" con la versi\u00f3n 1.21.8 de Minecraft y el loader Fabric. No hay mods instalados.\n\n\u00bfEn qu\u00e9 puedo ayudarte hoy? \u00bfQuieres crear una nueva instancia, instalar un servidor, buscar mods o cambiar de contexto? Estoy listo para ayudarte. \n\nPuedes usar comandos en formato JSON, como por ejemplo:\n- {\"action\": \"CREATE_INSTANCE\", \"name\": \"Nombre\", \"version\": \"1.20.1\", \"loader\": \"fabric\"}\n- {\"action\": \"INSTALL_SERVER_CORE\"}\n- {\"action\": \"SEARCH_MOD\", \"query\": \"nombre\"}\n- {\"action\": \"SWITCH_INSTANCE\", \"name\": \"Nombre\"}\n\nO simplemente puedes describir lo que necesitas y yo te guiar\u00e9 a trav\u00e9s del proceso. \u00bfQu\u00e9 deseas hacer?"
+        },
+        {
+            "role": "user",
+            "content": "hola"
+        },
+        {
+            "role": "ai",
+            "content": "No hay acci\u00f3n espec\u00edfica para saludar, as\u00ed que no hay JSON que responder.\n\nHola, \u00bfen qu\u00e9 puedo ayudarte con Minecraft? Estoy aqu\u00ed para gestionar instancias, mods y servidores con precisi\u00f3n t\u00e9cnica. \u00bfQuieres crear una nueva instancia, instalar mods o algo m\u00e1s? Estoy listo para ayudarte. Recuerda que actualmente no hay instancia activa ni mods instalados. \u00bfQu\u00e9 deseas hacer?"
+        },
+        {
+            "role": "user",
+            "content": "crea una nueva instancia"
+        },
+        {
+            "role": "ai",
+            "content": "{\"action\": \"CREATE_INSTANCE\", \"name\": \"NuevaInstancia\", \"version\": \"1.20.1\", \"loader\": \"fabric\"}\n\nHe creado una nueva instancia llamada \"NuevaInstancia\" con la versi\u00f3n de Minecraft 1.20.1 y el loader Fabric. Esta instancia est\u00e1 vac\u00eda, sin mods instalados. Ahora, \"NuevaInstancia\" es la instancia activa.\n\nESTADO ACTUAL:\n- Instancia Activa: NuevaInstancia\n- Versi\u00f3n Minecraft: 1.20.1\n- Loader: fabric\n- Mods Instalados (0): \n\n\u00bfQu\u00e9 deseas hacer con esta nueva instancia? \u00bfInstalar mods, crear un servidor o algo m\u00e1s?"
+        },
+        {
+            "role": "user",
+            "content": "mal, quiero que la instancia que acabas de crear sea de la 1.21.5"
+        },
+        {
+            "role": "ai",
+            "content": "{\"action\": \"CREATE_INSTANCE\", \"name\": \"NuevaInstancia\", \"version\": \"1.21.5\", \"loader\": \"fabric\"}\n\nLa instancia que se cre\u00f3 inicialmente con la versi\u00f3n 1.20.1 se eliminar\u00e1 y se crear\u00e1 una nueva instancia con la versi\u00f3n 1.21.5 y el loader fabric. La instancia se llamar\u00e1 \"NuevaInstancia\" y no tendr\u00e1 mods instalados. \u00bfDesea instalar alg\u00fan mod en esta nueva instancia?"
+        }
+    ]
+}
