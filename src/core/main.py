@@ -55,12 +55,12 @@ def main():
 
     while True:
         try:
-            # Prompt Dinámico
-            ctx_label = f"[CLIENT:{current_instance}]" if current_instance else "[GLOBAL]"
-            debug_tag = "[bold yellow][DEBUG][/bold yellow] " if debug_mode else ""
+            # Contexto visual y Prompt Estilizado (V20.0)
+            ctx_label = f"CLIENT:{current_instance}" if current_instance else "GLOBAL"
+            if current_server: ctx_label = f"SERVER:{current_server}"
             
-            ui.console.print() 
-            user_input = ui.ask_user(f"{debug_tag}{ctx_label} > ")
+            prompt_style = ui.get_styled_prompt(ctx_label, debug_mode)
+            user_input = ui.ask_user(prompt_style)
             
             if not user_input.strip(): continue
 
@@ -110,7 +110,7 @@ def main():
             tool = data.get("tool")
             params = data.get("params", {})
             
-            # Mostrar respuesta de texto si existe
+            # Mostrar respuesta de texto si existe (V20.0 - Usamos Panel Nuevo)
             if data.get("response_text"):
                 ui.print_ai_response(data["response_text"])
 
@@ -206,8 +206,6 @@ def main():
                         ok, msg = im.install_mod(tgt, url, file)
                     if ok: ui.print_success(msg)
                     else: ui.print_error(msg)
-            
-            ui.print_separator()
 
         except KeyboardInterrupt:
             break

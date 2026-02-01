@@ -1,10 +1,11 @@
 """
-MineGenesis V5.0 - UI Module
-Rich terminal interface with ASCII art, tables, and interactive confirmations.
+MineGenesis V20.0 - UI Module
+Rich terminal interface with ASCII art, tables, and Modern Chat UI.
 """
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from rich.padding import Padding
 from rich.prompt import Confirm, Prompt
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
@@ -34,7 +35,7 @@ def print_banner(model_name: str = "GROQ", profile: str = "Default"):
     # 1. ASCII Art (Centered in Panel)
     console.print(Align.center(Panel(
         f"[bold cyan]{banner}[/bold cyan]",
-        title="[bold cyan]v12.0.0[/bold cyan]",
+        title="[bold cyan]v20.0.0[/bold cyan]",
         subtitle="[dim]The Ultimate Minecraft Management System[/dim]",
         border_style="cyan",
         padding=(0, 2),
@@ -53,7 +54,7 @@ def print_banner(model_name: str = "GROQ", profile: str = "Default"):
     console.print(Align.center(panel))
     
     # 3. Hints (Subtle)
-    console.print(Align.center("[dim]!config: Cambiar IA • !models: Ver modelos • !help: Comandos • !exit: Salir[/dim]"))
+    console.print(Align.center("[dim]!debug: Logs • !config: AI • !help: Comandos • !exit: Salir[/dim]"))
     
     # 4. HEADER SEPARATOR
     console.print()
@@ -69,7 +70,6 @@ def print_separator():
 def print_instances_table(instances: list):
     """
     Displays a beautiful table of detected instances.
-    
     Args:
         instances: List of dicts with keys: name, type, path, version, mods
     """
@@ -170,8 +170,7 @@ def render_dashboard(instances: list, servers: list):
 def print_mods_table(mods: list, title="Mods Encontrados"):
     """
     Displays search results in a clean table.
-    
-    Args:
+    args:
         mods: List of dicts with: title, slug, author, downloads
     """
     if not mods:
@@ -206,43 +205,26 @@ def print_mods_table(mods: list, title="Mods Encontrados"):
 def confirm_mod_installation(mods: list) -> tuple:
     """
     Shows mod search results and asks user to confirm installation.
-    
-    Returns:
-        (install: bool, selected_index: int or None)
+    Returns: (install: bool, selected_index: int or None)
     """
     print_mods_table(mods)
     
-    if not mods:
-        return False, None
+    if not mods: return False, None
     
     console.print("\n[bold white]¿Deseas instalar algún mod?[/bold white]")
+    choice = Prompt.ask("Número del mod (o [bold]Enter[/bold] para cancelar)", default="")
     
-    choice = Prompt.ask(
-        "Número del mod (o [bold]Enter[/bold] para cancelar)",
-        default=""
-    )
-    
-    if not choice.strip():
-        return False, None
+    if not choice.strip(): return False, None
     
     try:
         index = int(choice) - 1
-        if 0 <= index < len(mods):
-            return True, index
-        else:
-            console.print("[red]❌ Número inválido[/red]")
-            return False, None
+        return (True, index) if 0 <= index < len(mods) else (False, None)
     except ValueError:
-        console.print("[red]❌ Entrada inválida[/red]")
         return False, None
 
 def show_spinner(task_description: str):
     """
     Context manager for showing a spinner during long operations.
-    
-    Usage:
-        with show_spinner("Descargando..."):
-            # long operation
     """
     return Progress(
         SpinnerColumn(),
@@ -267,13 +249,42 @@ def print_info(message: str):
     """Prints info message with icon."""
     console.print(f"[cyan]ℹ {message}[/cyan]")
 
-def print_ai_response(message: str):
-    """Prints AI response in a styled format."""
-    console.print(f"[bold blue]🤖 {message}[/bold blue]")
+# --- NEW V20.0 MODERN UI FUNCTIONS ---
+
+def print_ai_response(text):
+    """Renderiza la respuesta de la IA en un panel limpio y moderno."""
+    # Usamos Padding para darle aire arriba y abajo
+    console.print(Padding(
+        Panel(
+            text, 
+            title="[bold green]🤖 MineGenesis AI[/]", 
+            title_align="left",
+            border_style="dim green", # Borde sutil
+            padding=(0, 1) # Un poco de aire interno
+        ),
+        pad=(1, 0) # Aire externo vertical
+    ))
+
+def get_styled_prompt(context_label: str, debug_mode: bool = False) -> str:
+    """Devuelve el string formateado para el input del usuario."""
+    # Icono y color base para el usuario (Cyan/Azul)
+    user_icon = "[bold cyan]👤 YOU[/]"
+    
+    # Contexto (más sutil)
+    ctx = f"[dim]({context_label})[/dim]"
+    
+    # Indicador de Debug (si está activo)
+    dbg = "[bold yellow][DEBUG][/] " if debug_mode else ""
+    
+    # El separador final
+    separator = "[bold cyan]❯[/] "
+    
+    return f"{dbg}{user_icon} {ctx} {separator}"
 
 def ask_user(prompt: str) -> str:
-    """Gets user input with a styled prompt."""
-    return Prompt.ask(f"[bold white]{prompt}[/bold white]")
+    """Gets user input. Note: prompt param is usually styled before passing here or passed directly."""
+    # We use Prompt.ask directly, assuming 'prompt' already has rich codes.
+    return Prompt.ask(prompt)
 
 def run_ai_wizard():
     """Interactive wizard to configure AI provider."""
@@ -302,16 +313,6 @@ def print_ai_status(providers: dict, active: str):
     table.add_column("Proveedor", style="cyan")
     table.add_column("Modelo", style="magenta")
     table.add_column("Estado", style="green")
-    
-    # Sort keys to ensure stable ordering numbers
-    provider_names = sorted(list(providers.keys()))
-    
-    # Sort specifically to keep order: groq, gemini, openai, anthropic if possible, or just strict sort
-    # Actually, settings keeps them in dict insertion order usually, but sorted is safer for indices
-    # Let's use the list from main.py logic or just sorted keys
-    # To match main.py logic (list(settings.data["ai_providers"].keys())), we should probably rely on the dict order if python 3.7+
-    # But main.py uses list(settings.data["ai_providers"].keys()) which respects insertion order.
-    # Let's iterate normally but keep a counter.
     
     for idx, (name, data) in enumerate(providers.items(), start=1):
         is_active = (name == active)
